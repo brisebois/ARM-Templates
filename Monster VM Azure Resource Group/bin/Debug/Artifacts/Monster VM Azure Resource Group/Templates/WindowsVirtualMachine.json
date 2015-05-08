@@ -1,0 +1,540 @@
+﻿{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "newStorageAccountName": {
+            "type": "string",
+            "metadata": {
+                "description": "Unique DNS Name for the Storage Account where the Virtual Machine's disks will be placed."
+            }
+        },
+        "adminUsername": {
+            "type": "string",
+            "metadata": {
+                "description": "Username for the Virtual Machine."
+            }
+        },
+        "adminPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Password for the Virtual Machine."
+            }
+        },
+        "location": {
+            "type": "string",
+            "metadata": {
+                "description": "Data Center"
+            },
+            "defaultValue": "West US",
+            "allowedValues": [
+                "West US",
+                "East US 2",
+                "West Europe",
+                "Southeast Asia",
+                "Japan West"
+            ]
+        },
+        "vmSize": {
+            "type": "string",
+            "metadata": {
+                "description": "Virtual Machine Size"
+            },
+            "defaultValue": "Standard_DS14",
+            "allowedValues": [
+                "Standard_DS14"
+            ]
+        },
+        "vmName": {
+            "type": "string",
+            "metadata": {
+                "description": "Unique Name for the Virtual Machine"
+            }
+        },
+        "dnsNameForPublicIP": {
+            "type": "string",
+            "metadata": {
+                "description": "Unique DNS Name for the Public IP used to access the Virtual Machine."
+            }
+        },
+        "windowsOSVersion": {
+            "type": "string",
+            "defaultValue": "2012-R2-Datacenter",
+            "allowedValues": [
+                "2008-R2-SP1",
+                "2012-Datacenter",
+                "2012-R2-Datacenter",
+                "Windows-Server-Technical-Preview"
+            ],
+            "metadata": {
+                "description": "The Windows version for the VM. This will pick a fully patched image of this given Windows version. Allowed values: 2008-R2-SP1, 2012-Datacenter, 2012-R2-Datacenter, Windows-Server-Technical-Preview."
+            }
+        }
+    },
+    "variables": {
+        "imagePublisher": "MicrosoftWindowsServer",
+        "imageOffer": "WindowsServer",
+        "OSDiskName": "osdisk",
+        "sizeOfDiskInGB": "1023",
+        "nicName": "VMNic",
+        "addressPrefix": "10.0.0.0/16",
+        "subnetName": "Subnet",
+        "subnetPrefix": "10.0.0.0/24",
+        "storageAccountType": "Premium_LRS",
+        "publicIPAddressName": "PublicIP",
+        "publicIPAddressType": "Dynamic",
+        "vmStorageAccountContainerName": "vhds",
+        "virtualNetworkName": "[concat(parameters('vmName'),'vnet')]",
+        "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
+        "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables('subnetName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[parameters('newStorageAccountName')]",
+            "apiVersion": "2015-05-01-preview",
+            "location": "[parameters('location')]",
+            "tags": {
+                "displayName": "StorageAccount"
+            },
+            "properties": {
+                "accountType": "[variables('storageAccountType')]"
+            }
+        },
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('publicIPAddressName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "displayName": "PublicIPAddress"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "[variables('publicIPAddressType')]",
+                "dnsSettings": {
+                    "domainNameLabel": "[parameters('dnsNameForPublicIP')]"
+                }
+            }
+        },
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('virtualNetworkName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "displayName": "VirtualNetwork"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('addressPrefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('subnetName')]",
+                        "properties": {
+                            "addressPrefix": "[variables('subnetPrefix')]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[variables('nicName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "displayName": "NetworkInterface"
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]",
+                "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]"
+                            },
+                            "subnet": {
+                                "id": "[variables('subnetRef')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "[parameters('vmName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "displayName": "VirtualMachine"
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Storage/storageAccounts/', parameters('newStorageAccountName'))]",
+                "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('vmSize')]"
+                },
+                "osProfile": {
+                    "computername": "[parameters('vmName')]",
+                    "adminUsername": "[parameters('adminUsername')]",
+                    "adminPassword": "[parameters('adminPassword')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[variables('imagePublisher')]",
+                        "offer": "[variables('imageOffer')]",
+                        "sku": "[parameters('windowsOSVersion')]",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "osdisk",
+                        "vhd": {
+                            "uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/',variables('OSDiskName'),'.vhd')]"
+                        },
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    },
+                    "dataDisks": [
+                        {
+                            "name": "datadisk1",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 0,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','1','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk2",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 1,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','2','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk3",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 2,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','3','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk4",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 3,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','4','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk5",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 4,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','5','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk6",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 5,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','6','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk7",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 6,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','7','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk8",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 7,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','8','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk9",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 8,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','9','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk10",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 9,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','10','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk11",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 10,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','11','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk12",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 11,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','12','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk13",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 12,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','13','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk14",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 13,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','14','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk15",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 14,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','15','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk16",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 15,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','16','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk17",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 16,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','17','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk18",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 17,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','18','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk19",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 18,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','19','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk20",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 19,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','20','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk21",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 20,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','21','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk22",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 21,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','22','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk23",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 22,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','23','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk24",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 23,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','24','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk25",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 24,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','25','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk26",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 25,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','26','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk27",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 26,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','27','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk218",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 27,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','28','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk29",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 28,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','29','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk30",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 29,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','30','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk31",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 30,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','31','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        },
+                        {
+                            "name": "datadisk32",
+                            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+                            "lun": 31,
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "Uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/','datadisk','32','.vhd')]"
+                            },
+                            "createOption": "Empty"
+                        }
+                    ]
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('nicName'))]"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
