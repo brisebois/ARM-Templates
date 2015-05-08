@@ -68,6 +68,18 @@
             "metadata": {
                 "description": "The Windows version for the VM. This will pick a fully patched image of this given Windows version. Allowed values: 2008-R2-SP1, 2012-Datacenter, 2012-R2-Datacenter, Windows-Server-Technical-Preview."
             }
+        },
+        "modulesUrl": {
+            "type": "string",
+            "metadata": {
+                "description": "URL for the DSC configuration module. NOTE: Can be a Github url(raw) to the zip file"
+            }
+        },
+        "configurationFunction": {
+            "type": "string",
+            "metadata": {
+                "description": "DSC configuration function to call"
+            }
         }
     },
     "variables": {
@@ -534,6 +546,31 @@
                         }
                     ]
                 }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "[concat(parameters('vmName'),'/', 'dscExtension')]",
+            "apiVersion": "2015-05-01-preview",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', parameters('vmName'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Powershell",
+                "type": "DSC",
+                "typeHandlerVersion": "1.7",
+                "settings": {
+                    "ModulesUrl": "[parameters('modulesUrl')]",
+                    "SasToken": "",
+                    "ConfigurationFunction": "[parameters('configurationFunction')]",
+                    "Properties": {
+                        "MachineName": "[parameters('vmName')]",
+                        "DriveSize": 35184372088832,
+                        "NumberOfColumns" :  32
+                    }
+                },
+                "protectedSettings": null
             }
         }
     ]

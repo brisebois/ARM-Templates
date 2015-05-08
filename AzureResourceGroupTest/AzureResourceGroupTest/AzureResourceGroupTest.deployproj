@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>69412bea-0fcb-485e-82e8-372eb2e33106</ProjectGuid>
+    <ProjectGuid>060a6e8b-9f97-4c8f-a4e0-2a9ad851d802</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup>
     <TargetFrameworkIdentifier>Deployment</TargetFrameworkIdentifier>
@@ -30,9 +30,6 @@
     <Folder Include="Tools\" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Artifacts\DataDisk.ps1.zip">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="Deployment.targets">
       <Visible>False</Visible>
     </None>

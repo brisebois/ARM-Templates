@@ -3,8 +3,8 @@
 Param(
   [string] [Parameter(Mandatory=$true)] $ResourceGroupLocation,
   [string] $ResourceGroupName = 'MonsterVMAzureResourceGroup',
-  [switch] $UploadArtifacts = $false,
-  [string] $StorageAccountName, 
+  [switch] $UploadArtifacts = $true,
+  [string] $StorageAccountName = 'briseboispackages', 
   [string] $StorageContainerName = $ResourceGroupName.ToLowerInvariant() + '-stageartifacts',
   [string] $TemplateFile = '..\Templates\WindowsVirtualMachine.json',
   [string] $TemplateParametersFile = '..\Templates\WindowsVirtualMachine.param.dev.json',

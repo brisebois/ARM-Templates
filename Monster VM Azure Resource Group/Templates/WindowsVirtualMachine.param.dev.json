@@ -6,19 +6,19 @@
             "value": "msbriseboistest"
         },
         "adminUsername": {
-            "value": null
+            "value": "brisebois"
         },
         "dnsNameForPublicIP": {
             "value": "msbrisebois"
-        },
-        "adminPassword": {
-            "value": null
         },
         "vmName": {
             "value": "msbrisebois"
         },
         "windowsOSVersion": {
             "value": "2012-R2-Datacenter"
+        },
+        "configurationFunction": {
+            "value": "DataDisk.ps1"
         }
     }
 }
