@@ -1,24 +1,27 @@
 ﻿{
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
-    "contentVersion": "1.0.0.0",
+    "contentVersion": "1.0.0.1",
     "parameters": {
         "newStorageAccountName": {
-            "value": "msbriseboistest"
+            "value": "msarmbrisebois"
         },
         "adminUsername": {
             "value": "brisebois"
         },
         "dnsNameForPublicIP": {
-            "value": "msbrisebois"
+            "value": "msarmbrisebois"
         },
         "vmName": {
-            "value": "msbrisebois"
+            "value": "msarmbrisebois"
         },
         "windowsOSVersion": {
             "value": "2012-R2-Datacenter"
         },
         "configurationFunction": {
-            "value": "DataDisk.ps1"
+            "value": "DataDisk.ps1\\DataDisk"
+        },
+        "modulesUrl": {
+            "value": "https://briseboispackages.blob.core.windows.net/windows-powershell-dsc/DataDisk.ps1.zip"
         }
     }
 }
